@@ -1,54 +1,66 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BrowserProvider, Contract } from "ethers";
 import FaucetABI from "./contractABIs/Faucet.json";
 import TokenABI from "./contractABIs/SepoToken.json";
+import './App.css';
 
 const FAUCET_ADDRESS = process.env.REACT_APP_FAUCET_ADDRESS;
 const TOKEN_ADDRESS = process.env.REACT_APP_TOKEN_ADDRESS;
 
 function App() {
   const [account, setAccount] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("");
 
   const connectWallet = async () => {
-    if (!window.ethereum) {
-      alert("Please install MetaMask!");
-      return;
-    }
+    if (!window.ethereum) return alert("Install MetaMask!");
 
-    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-    setAccount(accounts[0]);
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      setAccount(accounts[0]);
+    } catch (err) {
+      console.error(err);
+      alert("Connection failed.");
+    }
   };
 
   const requestTokens = async () => {
-    if (!window.ethereum) {
-      alert("MetaMask is not installed");
-      return;
-    }
+    if (!window.ethereum) return alert("MetaMask not detected.");
 
-    const provider = new BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-
-    const faucet = new Contract(FAUCET_ADDRESS, FaucetABI, signer);
+    setLoading(true);
+    setStatus("Requesting tokens...");
 
     try {
+      const provider = new BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const faucet = new Contract(FAUCET_ADDRESS, FaucetABI.abi, signer);
+
       const tx = await faucet.requestTokens();
       await tx.wait();
-      alert("✅ Tokens requested successfully!");
-    } catch (error) {
-      console.error(error);
-      alert("❌ Transaction failed: " + (error.message || "Unknown error"));
+      setStatus("✅ 100 SPT sent to your wallet!");
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Transaction failed.");
     }
+
+    setLoading(false);
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>🚰 SepoToken Faucet</h1>
+    <div className="container">
+      <h1 className="title">🚰 SepoToken Faucet</h1>
+
       {!account ? (
-        <button onClick={connectWallet}>Connect Wallet</button>
+        <button className="button" onClick={connectWallet}>
+          Connect Wallet
+        </button>
       ) : (
         <>
-          <p>Wallet: {account}</p>
-          <button onClick={requestTokens}>Request 100 SPT</button>
+          <p className="address">Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
+          <button className="button" onClick={requestTokens} disabled={loading}>
+            {loading ? "Requesting..." : "Request 100 SPT"}
+          </button>
+          {status && <p className="status">{status}</p>}
         </>
       )}
     </div>
